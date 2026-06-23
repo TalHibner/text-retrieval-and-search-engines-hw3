@@ -1,170 +1,160 @@
-# Text Information Retrieval - HW3: RAG Question Answering System
+# 🔍 Advanced RAG System for Question Answering
 
-## Overview
-
-This repository contains an advanced Retrieval-Augmented Generation (RAG) system for answering questions using Wikipedia articles. The system retrieves relevant passages from a Wikipedia corpus and uses `Llama-3.2-1B-Instruct` to extract concise answers. Through systematic experimentation and innovative techniques like dynamic few-shot prompting, the system achieved a **32.80% F1 score**, placing in the **top 10** on the Kaggle leaderboard (a 2.8x improvement over the baseline of 11.6%).
+![Kaggle Score](https://img.shields.io/badge/Kaggle_Score-32.80%25_F1-brightgreen)
+![Rank](https://img.shields.io/badge/Rank-Top_10-blue)
+![Model](https://img.shields.io/badge/Model-Llama--3.2--1B--Instruct-orange)
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 
 **Student:** Tal Hibner  
 **Course:** Text Information Retrieval, Reichman University  
 
-## Key Innovation: Dynamic Few-Shot Prompting
+This repository contains the implementation of an advanced **Retrieval-Augmented Generation (RAG)** pipeline designed to answer factual questions using the Wikipedia-KILT corpus. By combining multi-strategy retrieval, dynamic few-shot prompting, and aggressive output cleaning, the system achieved a **32.80% F1 score** on the Kaggle leaderboard—representing a **2.8x improvement** over the baseline.
 
-The primary breakthrough was implementing **dynamic few-shot prompting** - an adaptive approach that selects the 5 most relevant examples from training data (using Jaccard similarity) for each test question and includes them in the prompt, leading to a significant performance boost.
+---
 
-## Files
+## 🌟 Key Innovation: Dynamic Few-Shot Prompting
 
-- **`TemplateRAGAssignment_Upload.ipynb`**: Original baseline system (~11.6% F1)
-- **`advanced_retrieval_methods.ipynb`**: Complete implementation of the enhanced system
-- **`EXECUTIVE_SUMMARY.md`**: High-level summary of the approach, results, and insights
-- **`FINAL_APPROACH_DOCUMENTATION.md`**: Detailed technical documentation of the architecture
-- **`README.md`**: This file
-- **`train.csv`**: Training data (3,778 questions with answers)
-- **`test.csv`**: Test data (2,032 questions, no answers)
-- **`advanced_retrieval_predictions.csv`**: Final Kaggle submission (32.80% score)
+The defining breakthrough of this project was **dynamic few-shot prompting**. 
 
-## Quick Start
+Instead of hardcoding the same 4-5 examples for every question, the system adapts dynamically:
+1. **Searches** the training set for the 5 most similar questions (using Jaccard similarity) to the current test question.
+2. **Injects** these highly relevant examples into the prompt.
+3. Allows the LLM to learn the specific pattern (e.g., sports teams, geographical locations) and apply it perfectly.
 
-### Option 1: Google Colab (Recommended)
+**Impact:** +2.68% F1 improvement (the largest single gain in the project). Fixed few-shot prompting actually *hurt* performance (-6.52%), proving that **relevance of examples is critical**.
 
-1. Open `advanced_retrieval_methods.ipynb` in Google Colab
-2. Update the Hugging Face token:
-   ```python
-   hugging_face_token = "YOUR_TOKEN_HERE"
+---
+
+## 🏗️ System Architecture
+
+```mermaid
+graph TD
+    A[Input Question] --> B[Query Preprocessing]
+    B --> C[Multi-Strategy Document Retrieval]
+    
+    subgraph Retrieval Level 1
+    C1[BM25 mu=500]
+    C2[BM25 mu=1000]
+    C3[BM25 mu=2000]
+    C4[Pseudo-Relevance Feedback]
+    C5[Entity-Focused Queries]
+    end
+    
+    C --> C1 & C2 & C3 & C4 & C5
+    
+    C1 & C2 & C3 & C4 & C5 --> D[Reciprocal Rank Fusion]
+    D --> E[Document Reranking]
+    
+    E --> F[Dynamic Few-Shot Example Selection]
+    F --> G[Prompt Construction]
+    G --> H[LLM Generation: Llama-3.2-1B]
+    H --> I[Aggressive Answer Post-Processing]
+    I --> J[Final Answer]
+```
+
+### Core Components
+
+1. **Multi-Strategy Retrieval Fusion:**
+   Runs 3 BM25 configurations, Pseudo-Relevance Feedback (PRF), and entity queries. The results are merged using **Reciprocal Rank Fusion (RRF)** and reranked via query-document similarity.
+   
+2. **Dynamic Example Selection:**
+   Pulls the 5 most similar training questions to serve as adaptive few-shot examples.
+   
+3. **Optimized Context Window:**
+   Uses **15 documents** with **1000 characters** per document (5,000 characters total context). This proved to be the optimal sweet spot between providing enough signal and avoiding noise/overfitting.
+   
+4. **Answer Post-Processing Forensics:**
+   Over **90+ custom regex rules** to clean common LLM failure modes (e.g., removing list markers, stripping verbose prefixes, and truncating responses to 1-5 words).
+
+---
+
+## 📊 Results & Performance
+
+| Metric | Score |
+|--------|-------|
+| **Kaggle F1 Score (Final)** | **32.80%** |
+| Local F1 (100 samples) | 67.63% |
+| Baseline F1 | 11.60% |
+| **Absolute Improvement** | **+21.20%** |
+| **Relative Improvement** | **2.8x** |
+
+**Kaggle Leaderboard Context:**
+Our score placed solidly in the **Top 10** (estimated 8th-10th place).
+
+---
+
+## 🧗‍♂️ Challenges Overcome
+
+Building a robust RAG pipeline with a 1B parameter model presented several hurdles:
+- **Challenge:** The small Llama-3.2-1B model struggled to follow instructions, frequently generating verbose essays and incomplete lists.
+  **Solution:** Designed an ultra-strict prompt template and implemented 90+ custom regex post-processing rules.
+- **Challenge:** Fixed few-shot examples confused the model on out-of-domain questions (e.g., answering geography questions with sports facts).
+  **Solution:** Pioneered the dynamic example selection approach, achieving a massive +9.2% F1 swing (-6.52% to +2.68%).
+- **Challenge:** Token limits forced a trade-off between the number of documents and the few-shot examples.
+  **Solution:** Systematically tested context sizes to find the absolute sweet spot at 1000 characters across 15 documents.
+
+---
+
+## 📂 Repository Structure
+
+```text
+text-retrieval-and-search-engines-hw3/
+├── TemplateRAGAssignment_Upload (10).ipynb  # Complete RAG pipeline implementation
+├── EXECUTIVE_SUMMARY.md                     # High-level summary of strategy & results
+├── FINAL_APPROACH_DOCUMENTATION.md          # Deep-dive technical documentation
+├── diagnose_retrieval.py                    # Script for analyzing retrieval quality
+├── experiment_helper.py                     # Utilities for managing experiments
+├── advanced_retrieval_predictions (7).csv   # Final Kaggle submission (32.80% F1)
+├── HW3.pdf                                  # Assignment instructions
+├── Dry_part3.pdf                            # Theoretical assignment portion
+├── data/                                    # Dataset directory (queries, corpus)
+└── drafts/                                  # Experimental notebooks & scripts
+```
+
+---
+
+## 🚀 Setup & Execution
+
+### Prerequisites
+
+- Python 3.10+
+- Jupyter Notebook environment (Kaggle, Google Colab, or local setup)
+- A Hugging Face account with access to `Llama-3.2-1B-Instruct`
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/<your-username>/text-retrieval-and-search-engines-hw3.git
+   cd text-retrieval-and-search-engines-hw3
    ```
-3. Update file paths in the data loading cell:
-   ```python
-   train_path = "/content/drive/MyDrive/YOUR_PATH/train.csv"
-   test_path = "/content/drive/MyDrive/YOUR_PATH/test.csv"
+
+2. Install the necessary packages:
+   ```bash
+   pip install transformers accelerate bitsandbytes sentence-transformers pyserini
    ```
-4. Run all cells
-5. Download `advanced_retrieval_predictions.csv` from your Drive
 
-### Option 2: Local Execution
+3. **Running the Pipeline:**
+   Open `TemplateRAGAssignment_Upload (10).ipynb` in Jupyter Notebook. The notebook is structured to walk through:
+   - Environment and dataset setup
+   - Retrieval indexing and configuration
+   - Multi-strategy retrieval execution
+   - Dynamic prompt construction
+   - LLM generation and post-processing
 
-Requirements:
-- Python 3.8+
-- CUDA GPU (recommended)
-- 16GB+ RAM
-- Java 11+ (for Pyserini)
+4. **Diagnostic & Helper Scripts:**
+   The repository includes standalone scripts for rapid experimentation without running the full notebook:
+   - `diagnose_retrieval.py`: Instantly check if answers exist within the top-K retrieved documents to pinpoint whether failures stem from the retriever or the LLM generator.
+   - `experiment_helper.py`: Analyze prediction errors, compute F1 scores locally, compare systems side-by-side, and receive automated suggestions for improvement.
 
-```bash
-# Install dependencies
-pip install pyserini==0.36.0 torch transformers pandas sentence-transformers
+---
 
-# Install Java (Ubuntu/Debian)
-sudo apt-get update
-sudo apt-get install openjdk-21-jdk
+## 💡 Lessons Learned
 
-# Run notebook
-jupyter notebook advanced_retrieval_methods.ipynb
-```
+1. **Context size is critical** - Using 1000 chars/doc gave the LLM the space it needed to find the actual answer compared to the standard 300-500 chars.
+2. **Adaptive > Fixed** - Dynamic few-shot examples were overwhelmingly more effective than fixed examples.
+3. **Small models need constraints** - Ultra-strict prompts and aggressive regex cleaning were absolutely necessary to keep the 1B parameter model from generating verbose essays.
+4. **Fusion beats single strategies** - RRF combining multiple BM25 configurations, PRF, and entity matching consistently outperformed any single retrieval strategy.
 
-## Key Components Over Baseline
-
-1. **Query Processing & Multi-Strategy Retrieval**
-   - BM25 with multiple configurations (mu=500, 1000, 2000)
-   - Pseudo-Relevance Feedback and entity-focused queries
-   - Reciprocal Rank Fusion to combine rankings
-
-2. **Large Context & Reranking**
-   - 5 documents × 1000 characters = 5,000 chars total context
-   - Final reranking by query-document similarity
-
-3. **Prompt Engineering & Dynamic Few-Shot**
-   - Dynamic selection of 5 most similar training questions
-   - Ultra-strict prompt instructions for the 1B model
-   - Highly deterministic generation (temperature=0.01)
-
-4. **Answer Post-Processing**
-   - 90+ regex rules to clean LLM outputs (removing lists, verbose prefixes, extracting entities)
-   - Truncation to 1-5 words
-
-## Final Configuration
-
-Optimal settings discovered through systematic testing:
-```python
-{
-    'k': 15,               # Initial documents to retrieve before reranking/fusion
-    'context_docs': 5,     # Final documents fed to LLM
-    'chars_per_doc': 1000, # Characters per document
-    'temperature': 0.01,   # LLM sampling temperature
-    'max_tokens': 30       # Maximum answer length
-}
-```
-
-## System Architecture
-
-```
-Input Question
-    ↓
-Query Preprocessing (Extract Entities)
-    ↓
-Multi-Strategy Retrieval (BM25, PRF)
-    ↓
-Document Fusion & Ranking (RRF)
-    ↓
-Dynamic Few-Shot Example Selection
-    ↓
-Prompt Construction
-    ↓
-LLM Generation (Llama-3.2-1B-Instruct)
-    ↓
-Aggressive Answer Post-Processing
-    ↓
-Final Answer
-```
-
-## Submission Format
-
-The output CSV uses this format (with JSON lists containing a single answer string):
-```csv
-id,prediction
-1,"[""Jamaican Patois""]"
-2,"[""Speaker of the Tennessee House of Representatives""]"
-```
-
-### Critical Formatting Steps
-
-**1. Loading train.csv (with answers):**
-```python
-import pandas as pd
-import json
-
-# MUST use converters to parse answers column as JSON
-df_train = pd.read_csv("train.csv", converters={"answers": json.loads})
-```
-
-**2. Before saving predictions:**
-```python
-# MUST format predictions as JSON strings with ensure_ascii=False
-df_prediction["prediction"] = df_prediction["prediction"].apply(
-    lambda x: json.dumps([x], ensure_ascii=False)
-)
-
-# Then save to CSV
-df_prediction.to_csv("advanced_retrieval_predictions.csv", index=False)
-```
-
-## Troubleshooting
-
-### Java/Pyserini Errors
-- Ensure Java 11+ is installed: `java -version`
-- Set JAVA_HOME environment variable
-- Reinstall pyserini: `pip install --force-reinstall pyserini==0.36.0`
-
-## Evaluation Metrics
-
-The competition uses token-level F1 score. 
-- **Baseline F1**: ~11.6%
-- **Final Kaggle F1**: 32.80% (Top 10)
-
-## Resources
-
-- [Pyserini Documentation](https://github.com/castorini/pyserini)
-- [Llama Model Card](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct)
-- [KILT Benchmark](https://ai.facebook.com/tools/kilt/)
-- [BM25 Algorithm](https://en.wikipedia.org/wiki/Okapi_BM25)
-
-## License
-
-Educational use only - Reichman University, Text Information Retrieval Course
+---
+*Developed for the Text Information Retrieval Course, Reichman University (December 2024)*
